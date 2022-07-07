@@ -1,6 +1,6 @@
 from .extentions import db
 from sqlalchemy.orm import validates
-from new import bcrypt
+from flaskapp import bcrypt
 
 
 class User(db.Model):

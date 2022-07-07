@@ -1,9 +1,9 @@
-from requests import get
-from new.models import User
-from new.extentions import db
+from flaskapp.models import User
+from flaskapp.extentions import db
 from flask import jsonify, request, Blueprint
-from new.utilities.module import get_current_user, get_request_data, add_new_user, update_user
-from new.utilities.UserValidator import UserValidator
+from flaskapp.utilities.UserValidator import UserValidator
+from flaskapp.utilities.Validator import UniqueValidator
+from flaskapp.utilities.module import get_current_user, get_request_data, add_new_user, update_user, reset_password
 
 user_api = Blueprint('user_api', __name__)
 
@@ -13,13 +13,10 @@ user_api = Blueprint('user_api', __name__)
 def create():
     user_info_dict = get_request_data()
     validator = UserValidator(user_info_dict)
-    blank_err_msgs = validator.validate_blank()
-    duplicate_err_msgs = validator.validate_duplicate()
-
-    if len(blank_err_msgs) != 0:
-        return jsonify(blank_err_msgs), 400
-    if len(duplicate_err_msgs) != 0:
-        return jsonify(duplicate_err_msgs), 400
+    try:
+        validator.nullValidator().uniqueValidator()
+    except Exception as e:
+        return jsonify(e.args[0]), 400
 
     new_user = add_new_user(user_info_dict)
     return jsonify({'message': 'created succeed!', **new_user}), 201
@@ -50,14 +47,15 @@ def patch_user(id):
 
     user_info_dict = get_request_data()
     validator = UserValidator(user_info_dict)
-    duplicate_err_msgs = validator.validate_duplicate()
 
-    if len(duplicate_err_msgs) != 0:
-        return jsonify(duplicate_err_msgs)
+    try:
+        validator.uniqueValidator()
+    except Exception as e:
+        return jsonify(e.args[0])
 
-    updated = update_user(id, user_info_dict)
+    updated_user = update_user(id, user_info_dict)
 
-    return jsonify(updated), 200
+    return jsonify(updated_user), 200
 
 
 # Delete User
@@ -77,13 +75,10 @@ def delete_user(id):
 # login api
 @user_api.route('/user/login/', methods=["POST"])
 def login():
-    userData = request.get_json()
-    error = validate('account', 'password')
-    if error:
-        return error
+    user_info_dict = get_request_data()
 
-    account = userData['account']
-    password = userData['password']
+    account = user_info_dict['account']
+    password = user_info_dict['password']
 
     user = User.query.filter_by(account=account).first()
 

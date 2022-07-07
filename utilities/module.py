@@ -1,5 +1,6 @@
-from new.models import User
-from new.extentions import db
+from asyncio import FastChildWatcher
+from flaskapp.models import User
+from flaskapp.extentions import db
 from typing import Dict
 from flask import request
 
@@ -28,3 +29,10 @@ def get_request_data():
 
 def get_current_user(user_data: Dict) -> User:
     return User.query.filter_by(**user_data).first()
+
+
+def reset_password(user: User, user_data) -> bool:
+    if ('password' in user_data.keys()):
+        user.password = user_data.password
+        return True
+    return False

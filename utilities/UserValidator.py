@@ -1,62 +1,54 @@
 from typing import Dict, List
-from new.models import User
-from new.utilities.module import get_current_user
+from flaskapp.models import User
+from flaskapp.utilities.module import get_current_user
+from flaskapp.utilities.Validator import NullValidator, UniqueValidator
 
 
-class UserValidator:
-    def __init__(self, user_data: Dict, user_model: User = User) -> None:
-        self.user_data = user_data
-        self.user = user_model
+class UserValidator(NullValidator, UniqueValidator):
+    def __init__(self, request: Dict, queryset: User = User) -> None:
+        UniqueValidator.__init__(self, queryset)
+        NullValidator.__init__(self, request)
 
-    def _is_column_unique(self, col):
-        return self.user.__table__.columns[col].unique and col != 'id'
+    def _is_field_unique(self, field):
+        return self.queryset.__table__.columns[field].unique and field != 'id'
 
-    def _is_column_required(self, col: str) -> bool:
-        return not self.user.__table__.columns[col].nullable
+    def _is_field_required(self, field: str) -> bool:
+        return not self.queryset.__table__.columns[field].nullable
 
-    def _get_columns_name(self) -> List:
-        return User.__table__.columns.keys()
+    def _get_fields(self) -> List:
+        return self.queryset.__table__.columns.keys()
 
-    def _get_required_col_list(self) -> List:
-        cols_required_list = []
-        cols_list = self._get_columns_name()
+    def _add_password_field(self, list: List) -> List:
+        return [*list, 'password']
 
-        for col in cols_list:
-            if self._is_column_required(col):
-                cols_required_list.append(col)
+    def _get_required_fields(self) -> List:
+        required_fields = []
+        fields_list = self._get_fields()
 
-        cols_required_list.append('password')
-        return cols_required_list
+        for field in fields_list:
+            if self._is_field_required(field):
+                required_fields.append(field)
 
-    def _get_unique_col_list(self) -> List:
-        unique_cols_list = []
-        cols_list = self._get_columns_name()
+        return required_fields
 
-        for col in cols_list:
-            if self._is_column_unique(col):
-                unique_cols_list.append(col)
+    def _get_unique_fields(self) -> List:
+        unique_fields = []
+        fields_list = self._get_fields()
 
-        return unique_cols_list
+        for field in fields_list:
+            if self._is_field_unique(field):
+                unique_fields.append(field)
 
-    def _is_column_null(self, col: str) -> bool:
-        return not (col in self.user_data and self.user_data.get(col))
+        return unique_fields
 
-    def validate_blank(self) -> List:
-        blank_err_msgs = []
-        required_list = self._get_required_col_list()
+    def nullValidator(self):
+        field_name_list = self._get_required_fields()
+        field_name_list = self._add_password_field(field_name_list)
+        NullValidator.__call__(self, field_name_list)
+        return self
 
-        for attr in required_list:
-            if self._is_column_null(attr):
-                blank_err_msgs.append({attr: f'\{attr}\ 此欄為不能為空'})
-        return blank_err_msgs
-
-    def validate_duplicate(self) -> List:
-        duplicate_err = []
-        unique_list = self._get_unique_col_list()
-
-        for attr in unique_list:
-            user_exist = get_current_user({attr: self.user_data.get(attr)})
-            if user_exist:
-                duplicate_err.append(
-                    {'message': f'this\'{attr}\'is duplicated', 'detail': attr})
-        return duplicate_err
+    def uniqueValidator(self):
+        unique_list = self._get_unique_fields()
+        for field_name in unique_list:
+            value = self.request.get(field_name)
+            UniqueValidator.__call__(self, value, field_name)
